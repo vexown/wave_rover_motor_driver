@@ -87,10 +87,18 @@ esp_err_t esp_now_comm_init(esp_now_comm_config_t *config)
 
     /* #02 - Initialize WiFi network interface (which ESP-NOW is built upon) */
     esp_err_t ret = esp_netif_init();
-    if (ret != ESP_OK) 
+    if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) 
     {
         ESP_LOGE(TAG, "esp_netif_init failed: %s", esp_err_to_name(ret));
         return ret;
+    }
+    if (ret == ESP_OK) 
+    {
+        ESP_LOGD(TAG, "Created new netif");
+    }
+    else 
+    {
+        ESP_LOGD(TAG, "Netif already initialized");
     }
 
     /* #03 - Create default event loop for WiFi events */
@@ -106,8 +114,16 @@ esp_err_t esp_now_comm_init(esp_now_comm_config_t *config)
     ret = esp_wifi_init(&cfg);
     if (ret != ESP_OK) 
     {
-        ESP_LOGE(TAG, "esp_wifi_init failed: %s", esp_err_to_name(ret));
-        return ret;
+        /* WiFi may already be initialized - check if we can proceed */
+        if (ret == ESP_ERR_INVALID_STATE) 
+        {
+            ESP_LOGD(TAG, "WiFi already initialized, continuing...");
+        }
+        else 
+        {
+            ESP_LOGE(TAG, "esp_wifi_init failed: %s", esp_err_to_name(ret));
+            return ret;
+        }
     }
 
     /* #05 - Set WiFi mode to Station (STA) for ESP-NOW */
@@ -122,8 +138,15 @@ esp_err_t esp_now_comm_init(esp_now_comm_config_t *config)
     ret = esp_wifi_start();
     if (ret != ESP_OK) 
     {
-        ESP_LOGE(TAG, "esp_wifi_start failed: %s", esp_err_to_name(ret));
-        return ret;
+        if (ret == ESP_ERR_INVALID_STATE) 
+        {
+            ESP_LOGD(TAG, "WiFi already started");
+        }
+        else 
+        {
+            ESP_LOGE(TAG, "esp_wifi_start failed: %s", esp_err_to_name(ret));
+            return ret;
+        }
     }
 
     /* #07 - Retrieve MAC address and store in config for later use */
