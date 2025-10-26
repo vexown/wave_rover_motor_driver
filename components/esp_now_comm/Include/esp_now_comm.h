@@ -130,11 +130,21 @@ esp_err_t esp_now_comm_remove_peer(const uint8_t *mac_addr);
 /**
  * @brief Send data to a peer device via ESP-NOW
  *
- * @details Transmits data to the specified peer. If mac_addr is NULL, the
- *          data is broadcast to all registered peers. The send completion
+ * @details Transmits data to the specified peer. The send completion
  *          is reported asynchronously via the on_send callback.
+ * 
+ *          Note - Messages can be sent ONLY TO REGISTERED PEERS. If the
+ *                peer is not registered, the send operation will fail.
  *
- * @param[in] mac_addr MAC address of destination peer (NULL for broadcast)
+ *          Addressing modes:
+ *          - Specific MAC address (unicast): Sends to one registered peer
+ *          - NULL (broadcast to peers): Sends to all registered peers
+ *          - {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF} (broadcast): Sends to all ESP32 devices in range,
+ *            regardless of peer registration
+ *
+ * @param[in] mac_addr MAC address of destination peer, or:
+ *                      - NULL to broadcast to all registered peers
+ *                      - {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF} for true broadcast
  * @param[in] data Pointer to data buffer to send
  * @param[in] len Length of data in bytes (max ESP_NOW_COMM_PAYLOAD_SIZE)
  *

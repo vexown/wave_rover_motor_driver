@@ -142,7 +142,24 @@ esp_err_t esp_now_comm_init(esp_now_comm_config_t *config)
         return ret;
     }
 
-    /* #09 - Register send completion and receive data callbacks which call user-defined functions (if provided) */
+    /* #09 - Register send completion and receive data callbacks
+     * 
+     * These callbacks forward ESP-NOW events to user-defined handlers (if provided).
+     * The callbacks are bridge functions between the ESP-NOW stack and application logic.
+     * 
+     * Send callback:
+     *   - Invoked asynchronously when a transmission attempt completes (success or failure)
+     *   - Reports MAC-layer transmission status (ACK received or transmission failed)
+     *   - ESP_NOW_SEND_SUCCESS: MAC-layer frame transmitted and ACK received from peer
+     *   - ESP_NOW_SEND_FAIL: No ACK received after max retries (peer offline or out of range)
+     *   - Note: Success means radio delivery only, NOT application-level confirmation
+     * 
+     * Receive callback:
+     *   - Invoked whenever any ESP32 sends a message directed at this device's MAC
+     *   - Note: No peer registration required to receive from a sender
+     *   - Any device that knows this device's MAC can send to it (open to all)
+     *   - Peer registration is only required for SENDING, not for RECEIVING
+     */
     ret = esp_now_register_send_cb(esp_now_send_cb);
     if (ret != ESP_OK) 
     {
