@@ -13,6 +13,7 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "esp_now_comm.h"
+#include "esp_now_comm_callbacks.h"
 
 /*******************************************************************************/
 /*                                  MACROS                                     */
@@ -49,35 +50,6 @@
  *      - Error code if any component fails to initialize
  */
 static esp_err_t initialize_components(void);
-
-/**
- * @brief Callback for ESP-NOW send completion
- *
- * @details Called by ESP-NOW stack after each transmission attempt to report
- *          success or failure.
- *
- * @param[in] mac_addr 6-byte MAC address of the destination peer
- * @param[in] status ESP_NOW_SEND_SUCCESS if transmission succeeded,
- *                   ESP_NOW_SEND_FAIL if failed
- *
- * @return None
- */
-static void on_data_send_callback(const uint8_t *mac_addr, esp_now_send_status_t status);
-
-/**
- * @brief Callback for ESP-NOW data reception
- *
- * @details Called by ESP-NOW stack asynchronously whenever a valid packet
- *          is received from a registered peer device. Can be used to parse
- *          protocol messages and update device state.
- *
- * @param[in] mac_addr 6-byte MAC address of the peer that sent the data
- * @param[in] data Pointer to the received data payload
- * @param[in] len Length of received data in bytes
- *
- * @return None
- */
-static void on_data_recv_callback(const uint8_t *mac_addr, const uint8_t *data, int len);
 
 /*******************************************************************************/
 /*                             STATIC VARIABLES                                */
@@ -142,27 +114,3 @@ static esp_err_t initialize_components(void)
     return ESP_OK;
 }
 
-static void on_data_send_callback(const uint8_t *mac_addr, esp_now_send_status_t status)
-{
-    /* Determine if send succeeded or failed and log the result */
-    const char *status_str = (status == ESP_NOW_SEND_SUCCESS) ? "SUCCESS" : "FAIL";
-    ESP_LOGI(TAG, "Send to %02x:%02x:%02x:%02x:%02x:%02x: %s", 
-             mac_addr[0], mac_addr[1], mac_addr[2], 
-             mac_addr[3], mac_addr[4], mac_addr[5], status_str);
-    
-    /* Here you could implement retry logic, update statistics, etc.
-     * For example: increment failure counter if status is FAIL
-     */
-}
-
-static void on_data_recv_callback(const uint8_t *mac_addr, const uint8_t *data, int len)
-{
-    /* Log the reception event with peer MAC address and data length */
-    ESP_LOGI(TAG, "Received %d bytes from %02x:%02x:%02x:%02x:%02x:%02x", 
-             len, mac_addr[0], mac_addr[1], mac_addr[2], 
-             mac_addr[3], mac_addr[4], mac_addr[5]);
-    
-    /* Here you could parse the received data and take action
-     * For example: deserialize protocol messages, update device state, etc.
-     */
-}
