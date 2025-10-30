@@ -117,17 +117,36 @@ static esp_err_t initialize_components(void)
 
     /******************************* TCP/IP & Event Loop *******************************/
     ESP_LOGI(TAG, "Initializing network stack...");
+    /* Initialize the TCP/IP stack (ESP-IDF uses lwIP for this) */
+    /* ESP-NETIF (Network Interface) library provides an abstraction layer for the application on top of the TCP/IP stack. 
+     * ESP-IDF currently implements ESP-NETIF for the lwIP TCP/IP stack only.
+     * See documentation for details: https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/network/esp_netif.html 
+     **/
     esp_err_t netif_err = esp_netif_init();
     if (netif_err != ESP_OK)
     {
         ESP_LOGI(TAG, "Network interface initialization failed: %s", esp_err_to_name(netif_err));
     }
     
+    /* Initialize and start the default system event loop. */
+    /* This loop is used by various ESP-IDF components (e.g., WiFi, TCP/IP)
+     * to post events and allows application code to register handlers
+     * that react to these events asynchronously. It facilitates communication
+     * between different parts of the system.
+     **/
     esp_err_t event_loop_err = esp_event_loop_create_default();
     if (event_loop_err != ESP_OK && event_loop_err != ESP_ERR_NO_MEM)
     {
         ESP_LOGI(TAG, "Event loop creation failed: %s", esp_err_to_name(event_loop_err));
     }
+    /* Create a default WiFi station interface */
+    /* The API creates esp_netif object with default WiFi station config,
+     * attaches the netif to wifi and registers wifi handlers to the default event loop.
+     * The return value is a pointer to the created esp_netif instance (not used here).
+     * (default event loop needs to be created prior to calling this API)
+     **/
+    (void)esp_netif_create_default_wifi_sta(); 
+
     ESP_LOGI(TAG, "Network stack initialized.");
 
     /******************************* WiFi Initialization *******************************/
