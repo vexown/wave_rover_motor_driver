@@ -175,7 +175,22 @@ static esp_err_t initialize_components(void)
         return ret;
     }
 
-    /************************ Placeholder ***********************/
+    /* Get current WiFi channel information (which is crucial for ESP-NOW communication because it operates on the same channel) */
+    uint8_t primary_ch = 0;
+    wifi_second_chan_t secondary_ch = WIFI_SECOND_CHAN_NONE;
+    esp_wifi_get_channel(&primary_ch, &secondary_ch);
+    ESP_LOGI(TAG, "Device operating on WiFi channel: %d", primary_ch);
+
+    /* Add the MAC address of the wave_rover_driver device as ESP-NOW peer */
+    uint8_t wave_rover_driver_mac[] = {0xD8, 0x13, 0x2A, 0x2F, 0x3C, 0xE4};
+    ESP_LOGI(TAG, "Adding wave_rover_driver peer...");
+    ret = esp_now_comm_add_peer(wave_rover_driver_mac);
+    if (ret != ESP_OK) 
+    {
+        ESP_LOGE(TAG, "Failed to add peer: %s", esp_err_to_name(ret));
+        return ret;
+    }
+    ESP_LOGI(TAG, "Controller peer added successfully");
     
     ESP_LOGI(TAG, "All components initialized successfully");
     return ESP_OK;
