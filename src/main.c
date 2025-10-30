@@ -18,6 +18,7 @@
 #include "nvs_flash.h"
 #include "esp_now_comm.h"
 #include "esp_now_comm_callbacks.h"
+#include "wifi_manager.h"
 
 /*******************************************************************************/
 /*                                  MACROS                                     */
@@ -131,23 +132,10 @@ static esp_err_t initialize_components(void)
 
     /******************************* WiFi Initialization *******************************/
     ESP_LOGI(TAG, "Initializing WiFi...");
-    wifi_init_config_t wifi_cfg = WIFI_INIT_CONFIG_DEFAULT();
-    esp_err_t wifi_init_err = esp_wifi_init(&wifi_cfg);
-    if (wifi_init_err != ESP_OK)
+    esp_err_t wifi_err = wifi_manager_init(NULL);
+    if (wifi_err != ESP_OK)
     {
-        ESP_LOGI(TAG, "WiFi init failed: %s", esp_err_to_name(wifi_init_err));
-    }
-    
-    esp_err_t wifi_mode_err = esp_wifi_set_mode(WIFI_MODE_STA);
-    if (wifi_mode_err != ESP_OK)
-    {
-        ESP_LOGI(TAG, "WiFi set mode failed: %s", esp_err_to_name(wifi_mode_err));
-    }
-    
-    esp_err_t wifi_start_err = esp_wifi_start();
-    if (wifi_start_err != ESP_OK)
-    {
-        ESP_LOGI(TAG, "WiFi start failed: %s", esp_err_to_name(wifi_start_err));
+        ESP_LOGI(TAG, "WiFi initialization failed: %s", esp_err_to_name(wifi_err)); // Log the error but continue execution
     }
     ESP_LOGI(TAG, "WiFi Initialized.");
 
