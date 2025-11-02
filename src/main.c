@@ -19,6 +19,7 @@
 #include "esp_now_comm.h"
 #include "esp_now_comm_callbacks.h"
 #include "wifi_manager.h"
+#include "motor_control.h"
 
 /*******************************************************************************/
 /*                                  MACROS                                     */
@@ -40,6 +41,9 @@
 /*******************************************************************************/
 /*                     GLOBAL VARIABLES DEFINITIONS                            */
 /*******************************************************************************/
+
+/* MAC address of the wave_rover_driver controller */
+const uint8_t wave_rover_driver_mac[6] = {0xD8, 0x13, 0x2A, 0x2F, 0x3C, 0xE4};
 
 /*******************************************************************************/
 /*                     STATIC FUNCTION DECLARATIONS                            */
@@ -189,7 +193,6 @@ static esp_err_t initialize_components(void)
     ESP_LOGI(TAG, "Device operating on WiFi channel: %d", primary_ch);
 
     /* Add the MAC address of the wave_rover_driver device as ESP-NOW peer */
-    uint8_t wave_rover_driver_mac[] = {0xD8, 0x13, 0x2A, 0x2F, 0x3C, 0xE4};
     ESP_LOGI(TAG, "Adding wave_rover_driver peer...");
     ret = esp_now_comm_add_peer(wave_rover_driver_mac);
     if (ret != ESP_OK) 
@@ -198,6 +201,16 @@ static esp_err_t initialize_components(void)
         return ret;
     }
     ESP_LOGI(TAG, "Controller peer added successfully");
+
+    /******************************* Motor Control *******************************/
+    ESP_LOGI(TAG, "Initializing motor control...");
+    ret = motor_control_init();
+    if (ret != ESP_OK) 
+    {
+        ESP_LOGE(TAG, "Failed to initialize motor control: %s", esp_err_to_name(ret));
+        return ret;
+    }
+    ESP_LOGI(TAG, "Motor control initialized successfully");
     
     ESP_LOGI(TAG, "All components initialized successfully");
     return ESP_OK;
