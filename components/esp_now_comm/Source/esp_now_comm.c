@@ -75,7 +75,7 @@ static uint8_t g_peer_count = 0;
 /*                     GLOBAL FUNCTION DEFINITIONS                             */
 /*******************************************************************************/
 
-esp_err_t esp_now_comm_init(esp_now_comm_config_t *config)
+esp_err_t esp_now_comm_init(esp_now_comm_config_t *config) // TODO - add init option for non-WiFi mode (not connected to AP)
 {
     if (!config) 
     {
