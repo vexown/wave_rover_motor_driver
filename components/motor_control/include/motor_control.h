@@ -30,7 +30,7 @@ extern "C" {
 #define MOTOR_PWM_MAX_DUTY          255        /* Maximum duty cycle value */
 
 /* Safety Watchdog */
-#define MOTOR_WATCHDOG_TIMEOUT_MS   1000       /* Stop motors if no command for 1 second */
+#define MOTOR_WATCHDOG_TIMEOUT_MS   500       /* Stop motors if no command for 500 ms */
 
 /* GPIO Pin Definitions for XIAO ESP32-C6 */
 /* Left Motor Driver (BTS7960B) */
