@@ -32,6 +32,9 @@ extern "C" {
 /* Safety Watchdog */
 #define MOTOR_WATCHDOG_TIMEOUT_MS   500       /* Stop motors if no command for 500 ms */
 
+/* Motor Direction Configuration */
+#define MOTOR_INVERT_DIRECTION      1          /* Set to 1 to invert front/back, 0 for normal */
+
 /* GPIO Pin Definitions for XIAO ESP32-C6 */
 /* Left Motor Driver (BTS7960B) */
 #define MOTOR_LEFT_L_EN_PIN         GPIO_NUM_17    /* Left motor - Left Enable */

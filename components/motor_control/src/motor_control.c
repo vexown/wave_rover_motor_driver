@@ -197,6 +197,12 @@ void motor_control_handle_command(const uint8_t *data, size_t len)
         return;
     }
 
+    /* Apply direction inversion if configured */
+#if MOTOR_INVERT_DIRECTION
+    left_speed = -left_speed;
+    right_speed = -right_speed;
+#endif
+
     ESP_LOGI(TAG, "Motor command received - Left: %d, Right: %d", left_speed, right_speed);
 
     /* Set motor speeds */
