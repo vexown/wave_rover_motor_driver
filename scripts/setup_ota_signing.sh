@@ -1,0 +1,289 @@
+#!/bin/bash
+################################################################################
+# @file setup_ota_signing.sh
+# @brief One-time setup script for OTA firmware signing
+#
+# @details This script generates an ECDSA P-256 key pair for signing firmware
+#          updates. It performs the following:
+#          1. Generates private key (kept secret, never committed)
+#          2. Extracts public key (embedded in firmware)
+#          3. Creates C header file with public key bytes
+#          4. Updates .gitignore to prevent private key commit
+#          5. Validates generated keys
+#
+# USAGE:
+#   ./scripts/setup_ota_signing.sh
+#
+# PREREQUISITES:
+#   - OpenSSL installed (usually pre-installed on Linux/Mac)
+#   - Run from project root directory
+#
+# OUTPUT FILES:
+#   - ota_private_key.pem (KEEP SECRET! Auto-added to .gitignore)
+#   - components/ota_manager/Include/ota_public_key.h (embedded in firmware)
+#
+################################################################################
+
+set -e  # Exit on any error
+
+# Color codes for pretty output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# File paths
+PRIVATE_KEY_FILE="ota_private_key.pem"
+PUBLIC_KEY_FILE="ota_public_key.pem"
+PUBLIC_KEY_HEADER="components/ota_manager/Include/ota_public_key.h"
+GITIGNORE_FILE=".gitignore"
+
+echo -e "${BLUE}═══════════════════════════════════════════════${NC}"
+echo -e "${BLUE}   ESP32 OTA Signing Setup${NC}"
+echo -e "${BLUE}   ECDSA P-256 Key Generation${NC}"
+echo -e "${BLUE}═══════════════════════════════════════════════${NC}"
+echo ""
+
+# Check if OpenSSL is installed
+if ! command -v openssl &> /dev/null; then
+    echo -e "${RED}✗ Error: OpenSSL not found!${NC}"
+    echo "  Please install OpenSSL:"
+    echo "    Ubuntu/Debian: sudo apt-get install openssl"
+    echo "    macOS: brew install openssl"
+    exit 1
+fi
+
+OPENSSL_VERSION=$(openssl version)
+echo -e "${GREEN}✓ OpenSSL found: ${OPENSSL_VERSION}${NC}"
+echo ""
+
+# Check if we're in the project root
+if [ ! -d "components/ota_manager" ]; then
+    echo -e "${RED}✗ Error: Must run from project root directory${NC}"
+    echo "  Current directory: $(pwd)"
+    echo "  Expected: components/ota_manager/ to exist"
+    exit 1
+fi
+
+echo -e "${GREEN}✓ Running from project root${NC}"
+echo ""
+
+# Check if keys already exist
+if [ -f "$PRIVATE_KEY_FILE" ]; then
+    echo -e "${YELLOW}⚠ Private key already exists: $PRIVATE_KEY_FILE${NC}"
+    read -p "  Overwrite existing keys? (y/N): " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "  Keeping existing keys. Exiting."
+        exit 0
+    fi
+    echo "  Regenerating keys..."
+    rm -f "$PRIVATE_KEY_FILE" "$PUBLIC_KEY_FILE"
+fi
+
+################################################################################
+# Step 1: Generate ECDSA P-256 private key
+################################################################################
+echo -e "${BLUE}[1/6] Generating ECDSA P-256 private key...${NC}"
+
+openssl ecparam -name prime256v1 -genkey -noout -out "$PRIVATE_KEY_FILE"
+
+if [ ! -f "$PRIVATE_KEY_FILE" ]; then
+    echo -e "${RED}✗ Failed to generate private key${NC}"
+    exit 1
+fi
+
+# Set restrictive permissions (owner read/write only)
+chmod 600 "$PRIVATE_KEY_FILE"
+
+echo -e "${GREEN}✓ Private key generated: $PRIVATE_KEY_FILE${NC}"
+echo -e "  ${YELLOW}⚠ KEEP THIS FILE SECRET! Never commit to git!${NC}"
+echo ""
+
+################################################################################
+# Step 2: Extract public key from private key
+################################################################################
+echo -e "${BLUE}[2/6] Extracting public key...${NC}"
+
+openssl ec -in "$PRIVATE_KEY_FILE" -pubout -out "$PUBLIC_KEY_FILE" 2>/dev/null
+
+if [ ! -f "$PUBLIC_KEY_FILE" ]; then
+    echo -e "${RED}✗ Failed to extract public key${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✓ Public key extracted: $PUBLIC_KEY_FILE${NC}"
+echo ""
+
+################################################################################
+# Step 3: Convert public key to raw bytes (uncompressed format)
+################################################################################
+echo -e "${BLUE}[3/6] Converting public key to C header file...${NC}"
+
+# Extract public key in uncompressed point format (0x04 || X || Y)
+# This gives us 65 bytes: 1-byte prefix (0x04) + 32-byte X coord + 32-byte Y coord
+PUBLIC_KEY_HEX=$(openssl ec -in "$PRIVATE_KEY_FILE" -pubout -outform DER 2>/dev/null | \
+                 tail -c 65 | xxd -p -c 65)
+
+if [ -z "$PUBLIC_KEY_HEX" ]; then
+    echo -e "${RED}✗ Failed to extract public key bytes${NC}"
+    exit 1
+fi
+
+# Generate C header file with proper formatting
+cat > "$PUBLIC_KEY_HEADER" << 'EOF_HEADER'
+/******************************************************************************
+ * @file ota_public_key.h
+ * @brief ECDSA P-256 public key for OTA firmware signature verification
+ *
+ * @details This file is AUTO-GENERATED by scripts/setup_ota_signing.sh
+ *          DO NOT EDIT MANUALLY!
+ *
+ *          The public key is embedded at compile time and used to verify
+ *          firmware signatures during OTA updates. This ensures only
+ *          firmware signed with the corresponding private key can be flashed.
+ *
+ *          Key format: Uncompressed ECDSA P-256 point (65 bytes)
+ *          - Byte 0: 0x04 (uncompressed point indicator)
+ *          - Bytes 1-32: X coordinate
+ *          - Bytes 33-64: Y coordinate
+ *
+ *          Regenerate keys: ./scripts/setup_ota_signing.sh
+ *
+ ******************************************************************************/
+
+#ifndef OTA_PUBLIC_KEY_H
+#define OTA_PUBLIC_KEY_H
+
+#include <stdint.h>
+
+/**
+ * @brief ECDSA P-256 public key for firmware signature verification
+ * 
+ * This key corresponds to the private key in ota_private_key.pem
+ * (which MUST be kept secret and never committed to version control).
+ */
+static const uint8_t g_ota_public_key[65] = {
+EOF_HEADER
+
+# Convert hex string to C array format with proper line breaks
+# Format as 8 bytes per line for readability
+BYTE_COUNT=0
+for ((i=0; i<${#PUBLIC_KEY_HEX}; i+=2)); do
+    BYTE="0x${PUBLIC_KEY_HEX:i:2}"
+    
+    # Start of line indentation
+    if [ $BYTE_COUNT -eq 0 ]; then
+        echo -n "    $BYTE" >> "$PUBLIC_KEY_HEADER"
+    # Every 8th byte, start a new line
+    elif [ $(($BYTE_COUNT % 8)) -eq 0 ]; then
+        echo "," >> "$PUBLIC_KEY_HEADER"
+        echo -n "    $BYTE" >> "$PUBLIC_KEY_HEADER"
+    # Continue on same line
+    else
+        echo -n ", $BYTE" >> "$PUBLIC_KEY_HEADER"
+    fi
+    
+    BYTE_COUNT=$((BYTE_COUNT + 1))
+done
+
+# Close the array and add final newline
+echo "" >> "$PUBLIC_KEY_HEADER"
+
+# Close the header file
+cat >> "$PUBLIC_KEY_HEADER" << 'EOF_FOOTER'
+};
+
+#endif /* OTA_PUBLIC_KEY_H */
+EOF_FOOTER
+
+echo -e "${GREEN}✓ Public key header created: $PUBLIC_KEY_HEADER${NC}"
+echo "  Key size: $BYTE_COUNT bytes (expected 65)"
+echo ""
+
+################################################################################
+# Step 4: Update .gitignore to prevent private key commit
+################################################################################
+echo -e "${BLUE}[4/6] Updating .gitignore...${NC}"
+
+# Check if private key is already in .gitignore
+if grep -q "^$PRIVATE_KEY_FILE$" "$GITIGNORE_FILE" 2>/dev/null; then
+    echo -e "${GREEN}✓ Private key already in .gitignore${NC}"
+else
+    # Add private key to .gitignore
+    echo "" >> "$GITIGNORE_FILE"
+    echo "# OTA signing private key (DO NOT COMMIT!)" >> "$GITIGNORE_FILE"
+    echo "$PRIVATE_KEY_FILE" >> "$GITIGNORE_FILE"
+    echo -e "${GREEN}✓ Added $PRIVATE_KEY_FILE to .gitignore${NC}"
+fi
+
+# Also ignore temporary public key PEM (we only need the .h file)
+if ! grep -q "^$PUBLIC_KEY_FILE$" "$GITIGNORE_FILE" 2>/dev/null; then
+    echo "$PUBLIC_KEY_FILE" >> "$GITIGNORE_FILE"
+    echo -e "${GREEN}✓ Added $PUBLIC_KEY_FILE to .gitignore${NC}"
+fi
+
+echo ""
+
+################################################################################
+# Step 5: Validate generated keys
+################################################################################
+echo -e "${BLUE}[5/6] Validating keys...${NC}"
+
+# Test signing and verification
+TEST_DATA="ESP32 OTA Test Data"
+TEST_SIGNATURE="test_signature.bin"
+
+# Sign test data
+echo -n "$TEST_DATA" | openssl dgst -sha256 -sign "$PRIVATE_KEY_FILE" -out "$TEST_SIGNATURE" 2>/dev/null
+
+# Verify signature
+if echo -n "$TEST_DATA" | openssl dgst -sha256 -verify "$PUBLIC_KEY_FILE" -signature "$TEST_SIGNATURE" &>/dev/null; then
+    echo -e "${GREEN}✓ Keys validated successfully (sign/verify test passed)${NC}"
+    rm -f "$TEST_SIGNATURE"
+else
+    echo -e "${RED}✗ Key validation failed!${NC}"
+    rm -f "$TEST_SIGNATURE"
+    exit 1
+fi
+
+echo ""
+
+################################################################################
+# Step 6: Display summary
+################################################################################
+echo -e "${BLUE}[6/6] Setup complete!${NC}"
+echo ""
+echo -e "${GREEN}═══════════════════════════════════════════════${NC}"
+echo -e "${GREEN}   ✓ OTA Signing Keys Generated Successfully${NC}"
+echo -e "${GREEN}═══════════════════════════════════════════════${NC}"
+echo ""
+echo -e "${YELLOW}IMPORTANT SECURITY NOTES:${NC}"
+echo ""
+echo "  1. Private Key (KEEP SECRET!):"
+echo "     📄 $PRIVATE_KEY_FILE"
+echo "     - This file MUST remain secret"
+echo "     - Never commit to git (already in .gitignore)"
+echo "     - Back up securely (encrypted storage recommended)"
+echo "     - Anyone with this key can sign malicious firmware!"
+echo ""
+echo "  2. Public Key (embedded in firmware):"
+echo "     📄 $PUBLIC_KEY_HEADER"
+echo "     - This file is SAFE to commit to git"
+echo "     - Embedded in firmware at compile time"
+echo "     - Used to verify firmware signatures"
+echo ""
+echo -e "${BLUE}NEXT STEPS:${NC}"
+echo ""
+echo "  1. Build your firmware:"
+echo "     $ idf.py build"
+echo ""
+echo "  2. Sign the firmware:"
+echo "     $ ./scripts/sign_firmware.sh"
+echo ""
+echo "  3. Upload signed firmware via OTA web interface"
+echo "     http://<device-ip>:8080"
+echo ""
+echo -e "${GREEN}Happy flashing! 🚀${NC}"
+echo ""
