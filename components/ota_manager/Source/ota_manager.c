@@ -774,7 +774,63 @@ static void update_status(ota_status_t new_status, int progress)
 {
     g_ota_state.status = new_status;
     
-    /* Invoke user callback if registered */
+    /* Log status changes internally */
+    switch (new_status)
+    {
+        case OTA_STATUS_IDLE:
+            ESP_LOGD(TAG, "OTA status: Idle");
+            break;
+            
+        case OTA_STATUS_RECEIVING:
+            if (progress % 10 == 0 || progress == 0) { // Log every 10% or at start
+                ESP_LOGI(TAG, "Receiving firmware: %d%%", progress);
+            }
+            break;
+            
+        case OTA_STATUS_VERIFYING_SIGNATURE:
+            ESP_LOGI(TAG, "Verifying firmware signature...");
+            break;
+            
+        case OTA_STATUS_VERIFYING_VERSION:
+            ESP_LOGI(TAG, "Verifying firmware version...");
+            break;
+            
+        case OTA_STATUS_FLASHING:
+            if (progress % 10 == 0 || progress == 0) { // Log every 10% or at start
+                ESP_LOGI(TAG, "Flashing firmware: %d%%", progress);
+            }
+            break;
+            
+        case OTA_STATUS_SUCCESS:
+            ESP_LOGI(TAG, "✓ OTA update successful! Device will reboot...");
+            break;
+            
+        case OTA_STATUS_ERROR_SIGNATURE:
+            ESP_LOGE(TAG, "✗ Signature verification failed!");
+            break;
+            
+        case OTA_STATUS_ERROR_VERSION:
+            ESP_LOGE(TAG, "✗ Version check failed (downgrade attempt)");
+            break;
+            
+        case OTA_STATUS_ERROR_PARTITION:
+            ESP_LOGE(TAG, "✗ Partition operation failed");
+            break;
+            
+        case OTA_STATUS_ERROR_SIZE:
+            ESP_LOGE(TAG, "✗ Firmware too large for partition");
+            break;
+            
+        case OTA_STATUS_ERROR_NETWORK:
+            ESP_LOGE(TAG, "✗ Network/upload error");
+            break;
+            
+        default:
+            ESP_LOGE(TAG, "✗ OTA update failed (unknown error)");
+            break;
+    }
+    
+    /* Invoke optional user callback for custom handling (e.g., LED updates) */
     if (g_config.status_callback) 
     {
         g_config.status_callback(new_status, progress);

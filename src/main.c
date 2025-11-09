@@ -94,14 +94,6 @@ static esp_err_t initialize_components(void);
  */
 static bool verify_system_health(void);
 
-/**
- * @brief OTA status callback for progress monitoring
- *
- * @param[in] status Current OTA status
- * @param[in] progress Upload/flash progress (0-100)
- */
-static void ota_status_callback(ota_status_t status, int progress);
-
 /*******************************************************************************/
 /*                             STATIC VARIABLES                                */
 /*******************************************************************************/
@@ -295,12 +287,12 @@ static esp_err_t initialize_components(void)
     /******************************* OTA Manager *******************************/
     ESP_LOGI(TAG, "Initializing OTA Manager...");
     
-    /* Configure OTA manager with default settings */
+    /* Configure OTA manager (callback is optional - component logs internally) */
     ota_manager_config_t ota_config = OTA_MANAGER_CONFIG_DEFAULT();
     ota_config.server_port = OTA_SERVER_PORT;
     ota_config.current_version = FIRMWARE_VERSION;
     ota_config.verify_signature = true;  // Enable ECDSA signature verification
-    ota_config.status_callback = ota_status_callback;
+    ota_config.status_callback = NULL;   // Component handles logging internally
     
     ret = ota_manager_init(&ota_config);
     if (ret != ESP_OK)
@@ -351,61 +343,5 @@ static bool verify_system_health(void)
     
     ESP_LOGI(TAG, "System health checks passed (Free heap: %u bytes)", free_heap);
     return true;
-}
-
-static void ota_status_callback(ota_status_t status, int progress)
-{
-    /* This callback is invoked during OTA operations to report progress */
-    switch (status)
-    {
-        case OTA_STATUS_IDLE:
-            ESP_LOGD(TAG, "OTA: Idle");
-            break;
-            
-        case OTA_STATUS_RECEIVING:
-            ESP_LOGI(TAG, "OTA: Receiving firmware (%d%%)", progress);
-            /* Example: Update LED to show progress */
-            break;
-            
-        case OTA_STATUS_VERIFYING_SIGNATURE:
-            ESP_LOGI(TAG, "OTA: Verifying signature...");
-            break;
-            
-        case OTA_STATUS_VERIFYING_VERSION:
-            ESP_LOGI(TAG, "OTA: Verifying version...");
-            break;
-            
-        case OTA_STATUS_FLASHING:
-            ESP_LOGI(TAG, "OTA: Flashing firmware (%d%%)", progress);
-            break;
-            
-        case OTA_STATUS_SUCCESS:
-            ESP_LOGI(TAG, "OTA: Update successful! Rebooting...");
-            break;
-            
-        case OTA_STATUS_ERROR_SIGNATURE:
-            ESP_LOGE(TAG, "OTA: Signature verification failed!");
-            break;
-            
-        case OTA_STATUS_ERROR_VERSION:
-            ESP_LOGE(TAG, "OTA: Version check failed (downgrade attempt)");
-            break;
-            
-        case OTA_STATUS_ERROR_PARTITION:
-            ESP_LOGE(TAG, "OTA: Partition operation failed");
-            break;
-            
-        case OTA_STATUS_ERROR_SIZE:
-            ESP_LOGE(TAG, "OTA: Firmware too large for partition");
-            break;
-            
-        case OTA_STATUS_ERROR_NETWORK:
-            ESP_LOGE(TAG, "OTA: Network/upload error");
-            break;
-            
-        default:
-            ESP_LOGE(TAG, "OTA: Unknown error");
-            break;
-    }
 }
 
