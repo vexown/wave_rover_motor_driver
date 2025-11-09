@@ -3,3 +3,12 @@
 __pycache__
 *.pyc
 .DS_Store
+
+# OTA signing keys (DO NOT COMMIT!)
+ota_private_key.pem
+ota_public_key.pem
+
+# Build artifacts
+build/
+*.bin
+*_signed.bin
