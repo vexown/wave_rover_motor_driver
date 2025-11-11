@@ -287,11 +287,23 @@ static esp_err_t initialize_components(void)
     /******************************* OTA Manager *******************************/
     ESP_LOGI(TAG, "Initializing OTA Manager...");
     
-    /* Configure OTA manager (callback is optional - component logs internally) */
+    /* Configure OTA manager based on build configuration */
     ota_manager_config_t ota_config = OTA_MANAGER_CONFIG_DEFAULT();
     ota_config.server_port = OTA_SERVER_PORT;
+
+#ifdef OTA_DEVELOPMENT_MODE
+    /* Development mode: Skip signature verification for fast iteration */
+    ota_config.verify_signature = false;
+    ota_config.current_version = NULL;  // No version checking
+    ESP_LOGW(TAG, "⚠ OTA in DEVELOPMENT mode (signature verification DISABLED)");
+    ESP_LOGW(TAG, "   This mode is for development only - DO NOT deploy to production!");
+#else
+    /* Production mode: Full security enabled */
     ota_config.current_version = FIRMWARE_VERSION;
-    ota_config.verify_signature = true;  // Enable ECDSA signature verification
+    ota_config.verify_signature = true;
+    ESP_LOGI(TAG, "OTA in PRODUCTION mode (signature verification enabled)");
+#endif
+
     ota_config.status_callback = NULL;   // Component handles logging internally
     
     ret = ota_manager_init(&ota_config);
