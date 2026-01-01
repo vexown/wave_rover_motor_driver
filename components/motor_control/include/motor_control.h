@@ -30,7 +30,7 @@ extern "C" {
 #define MOTOR_PWM_MAX_DUTY          255        /* Maximum duty cycle value */
 
 /* Safety Watchdog */
-#define MOTOR_WATCHDOG_TIMEOUT_MS   500       /* Stop motors if no command for 500 ms */
+#define MOTOR_WATCHDOG_TIMEOUT_MS   100       /* Stop motors if no command for 100 ms */
 
 /* Motor Direction Configuration */
 #define MOTOR_INVERT_DIRECTION      1          /* Set to 1 to invert front/back, 0 for normal */

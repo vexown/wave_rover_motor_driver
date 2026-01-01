@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16.0)
 
 # Set project version (single source of truth)
-set(PROJECT_VER "1.0.6")
+set(PROJECT_VER "1.0.7")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(wave_rover_motor_driver)
